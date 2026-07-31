@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class BudgetServiceImpl implements BudgetService {
 
+    // Change this line:
     private final BudgetRepository budgetRepository;
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;

@@ -11,6 +11,7 @@ import com.finsightai.finsight_ai_backend.security.UserPrincipal;
 import com.finsightai.finsight_ai_backend.service.BudgetService;
 import com.finsightai.finsight_ai_backend.service.ExpenseService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +23,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -47,13 +49,17 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense savedExpense = expenseRepository.save(expense);
 
-        // Evaluate if this expense crosses active spending limits
-        budgetService.checkBudgetThresholds(
-                user,
-                savedExpense.getCategory(),
-                savedExpense.getRecordDate().getMonthValue(),
-                savedExpense.getRecordDate().getYear()
-        );
+        // Defensively protect the transaction against uninitialized budget limits
+        try {
+            budgetService.checkBudgetThresholds(
+                    user,
+                    savedExpense.getCategory(),
+                    savedExpense.getRecordDate().getMonthValue(),
+                    savedExpense.getRecordDate().getYear()
+            );
+        } catch (Exception e) {
+            log.warn("Budget thresholds assessment skipped or not configured for this sector: {}", e.getMessage());
+        }
 
         return mapToResponse(savedExpense);
     }
@@ -76,13 +82,16 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense updatedExpense = expenseRepository.save(expense);
 
-        // Re-evaluate limits
-        budgetService.checkBudgetThresholds(
-                user,
-                updatedExpense.getCategory(),
-                updatedExpense.getRecordDate().getMonthValue(),
-                updatedExpense.getRecordDate().getYear()
-        );
+        try {
+            budgetService.checkBudgetThresholds(
+                    user,
+                    updatedExpense.getCategory(),
+                    updatedExpense.getRecordDate().getMonthValue(),
+                    updatedExpense.getRecordDate().getYear()
+            );
+        } catch (Exception e) {
+            log.warn("Budget thresholds update skipped: {}", e.getMessage());
+        }
 
         return mapToResponse(updatedExpense);
     }
@@ -126,8 +135,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         expenseRepository.delete(expense);
 
-        // Re-evaluate to clear warnings if the total drops back under the budget limit
-        budgetService.checkBudgetThresholds(user, category, month, year);
+        try {
+            budgetService.checkBudgetThresholds(user, category, month, year);
+        } catch (Exception e) {
+            log.warn("Budget thresholds clearing configuration skipped: {}", e.getMessage());
+        }
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.finsightai.finsight_ai_backend.dto.response.NotificationResponse;
 import com.finsightai.finsight_ai_backend.entity.Notification;
 import com.finsightai.finsight_ai_backend.entity.User;
 import com.finsightai.finsight_ai_backend.exception.ResourceNotFoundException;
+import com.finsightai.finsight_ai_backend.repository.FinancialGoalRepository;
 import com.finsightai.finsight_ai_backend.repository.NotificationRepository;
 import com.finsightai.finsight_ai_backend.repository.UserRepository;
 import com.finsightai.finsight_ai_backend.security.UserPrincipal;

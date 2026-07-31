@@ -20,18 +20,20 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = (newToken, userData) => {
+    const login = (newToken, userData, newRefreshToken) => {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(userData));
+        if (newRefreshToken) {
+            localStorage.setItem("refreshToken", newRefreshToken);
+        }
         setToken(newToken);
         setUser(userData);
-        
-        // FIXED: Change from "/" to "/dashboard" so logging in instantly drops users into the admin panel
         navigate("/dashboard");
     };
 
     const logout = () => {
         localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         setToken(null);
         setUser(null);

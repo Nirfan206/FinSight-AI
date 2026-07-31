@@ -29,55 +29,47 @@ function LoginPage() {
     e.preventDefault();
 
     let validationErrors = {};
-    if (!formData.email.trim()) {
-      validationErrors.email = "Email is required";
-    }
-    if (!formData.password.trim()) {
-      validationErrors.password = "Password is required";
-    }
+    if (!formData.email.trim()) validationErrors.email = "Email is required";
+    if (!formData.password.trim()) validationErrors.password = "Password is required";
 
     setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
 
-    if (Object.keys(validationErrors).length === 0) {
-      try {
-        const response = await loginUser({
-          email: formData.email,
-          password: formData.password,
-        });
+    try {
+      // loginUser() already unwraps to the ApiResponse body: { success, message, data: AuthResponse }
+      const response = await loginUser({
+        email: formData.email,
+        password: formData.password,
+      });
 
-        console.log("Raw Auth Response:", response);
+      const authData = response.data; // AuthResponse: { userId, fullName, email, role, token, refreshToken, expiresIn }
 
-        // Smart extractor looks for token directly, or nested within standard response blocks
-        const targetToken = response.token || response.data?.token;
-        const targetUser = response.user || response.data?.user || { fullName: "Irfan Nanasana", email: formData.email };
+      if (authData?.token) {
+        const userData = {
+          userId: authData.userId,
+          fullName: authData.fullName,
+          email: authData.email,
+          role: authData.role,
+        };
 
-        if (targetToken) {
-          alert(response.message || "Login Successful!");
-          login(targetToken, targetUser);
+        alert(response.message || "Login Successful!");
+        login(authData.token, userData, authData.refreshToken);
+      } else {
+        alert("Login succeeded but no access token was returned. Please contact support.");
+      }
+    } catch (error) {
+      console.error(error);
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === "object" && errorData.message) {
+          alert(`Login Failed: ${errorData.message}`);
+        } else if (typeof errorData === "string") {
+          alert(errorData);
         } else {
-          // Fallback mechanism if the backend sends a plain token string directly
-          if (typeof response === "string" && response.length > 20) {
-            alert("Login Successful!");
-            login(response, targetUser);
-          } else {
-            alert("Auth system configuration failure. Token tracking context missing.");
-          }
+          alert(`Server Error: ${JSON.stringify(errorData)}`);
         }
-
-      } catch (error) {
-        console.error(error);
-        if (error.response && error.response.data) {
-          const errorData = error.response.data;
-          if (typeof errorData === 'object' && errorData.message) {
-            alert(`Login Failed: ${errorData.message}`);
-          } else if (typeof errorData === 'string') {
-            alert(errorData);
-          } else {
-            alert(`Server Error: ${JSON.stringify(errorData)}`);
-          }
-        } else {
-          alert("Server not reachable. Please check your network connection.");
-        }
+      } else {
+        alert("Server not reachable. Please check your network connection.");
       }
     }
   };
@@ -131,18 +123,12 @@ function LoginPage() {
                     checked={formData.remember}
                     onChange={handleChange}
                   />
-                  <label className="form-check-label" htmlFor="remember">
-                    Remember Me
-                  </label>
+                  <label className="form-check-label" htmlFor="remember">Remember Me</label>
                 </div>
-                <Link to="/forgot-password" className="text-decoration-none">
-                  Forgot Password?
-                </Link>
+                <Link to="/forgot-password" className="text-decoration-none">Forgot Password?</Link>
               </div>
 
-              <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold">
-                Login
-              </button>
+              <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold">Login</button>
 
               <button
                 type="button"

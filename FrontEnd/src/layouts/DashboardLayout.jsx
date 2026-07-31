@@ -6,7 +6,6 @@ export default function DashboardLayout() {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Fallback initial metrics context layout anchor definitions 
   const [metrics] = useState({
     totalIncome: 0,
     totalExpenses: 0,
@@ -16,7 +15,9 @@ export default function DashboardLayout() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
     navigate("/login");
   };
 
@@ -33,10 +34,9 @@ export default function DashboardLayout() {
 
   return (
     <div className="d-flex min-vh-100 w-100 bg-light text-dark overflow-x-hidden">
-      {/* Sidebar Navigation Panel */}
-      <nav 
+      <nav
         className="bg-white border-end border-light-subtle d-flex flex-column h-100 position-sticky top-0"
-        style={{ 
+        style={{
           width: isSidebarOpen ? "260px" : "0px",
           minWidth: isSidebarOpen ? "260px" : "0px",
           opacity: isSidebarOpen ? 1 : 0,
@@ -48,7 +48,7 @@ export default function DashboardLayout() {
         <div className="p-4 border-bottom border-light-subtle d-flex align-items-center justify-content-between">
           <span className="fs-5 fw-bold tracking-tight text-primary">FinSight AI</span>
         </div>
-        
+
         <div className="flex-grow-1 py-3 px-2 overflow-y-auto style-scroll">
           <ul className="nav nav-pills flex-column gap-1">
             {menuItems.map((item) => {
@@ -58,9 +58,7 @@ export default function DashboardLayout() {
                   <Link
                     to={item.path}
                     className={`nav-link border-0 d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 fw-medium transition-all ${
-                      isActive 
-                        ? "bg-primary text-white shadow-sm" 
-                        : "text-secondary hover-bg-light"
+                      isActive ? "bg-primary text-white shadow-sm" : "text-secondary hover-bg-light"
                     }`}
                   >
                     <span>{item.label}</span>
@@ -72,7 +70,7 @@ export default function DashboardLayout() {
         </div>
 
         <div className="p-3 border-top border-light-subtle">
-          <button 
+          <button
             onClick={handleLogout}
             className="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-3 fw-semibold py-2"
           >
@@ -81,17 +79,16 @@ export default function DashboardLayout() {
         </div>
       </nav>
 
-      {/* Main Content Viewport */}
       <div className="flex-grow-1 d-flex flex-column min-vh-100 min-w-0 w-100 style-scroll">
         <header className="navbar navbar-expand bg-white border-bottom border-light-subtle px-4 py-3 sticky-top w-100">
           <div className="container-fluid p-0 d-flex justify-content-between align-items-center">
-            <button 
+            <button
               className="btn btn-light border border-light-subtle rounded-3 p-2"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
               ☰
             </button>
-            
+
             <div className="d-flex align-items-center gap-3">
               <span className="small text-muted fw-medium d-none d-sm-inline">
                 Operational Status: <span className="text-success fw-bold">● Active</span>
@@ -101,7 +98,6 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        {/* COMPREHENSIVE VIEW CONTAINER PORT */}
         <main className="flex-grow-1 p-4 p-md-5 bg-light w-100">
           <Outlet context={{ metrics }} />
         </main>

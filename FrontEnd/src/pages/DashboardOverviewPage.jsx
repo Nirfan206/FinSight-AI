@@ -31,14 +31,16 @@ export default function DashboardOverviewPage() {
           withCredentials: true
         };
 
-        // 1. Fetch live authenticated dynamic calculations from the Spring Boot income module
-        const incomeResponse = await axios.get("http://localhost:8080/api/incomes/monthly-total", config);
+        // FIXED: Concurrent API mesh calls fetching both income and expense real totals from backend database layers
+        const [incomeResponse, expenseResponse] = await Promise.all([
+          axios.get("http://localhost:8080/api/incomes/monthly-total", config),
+          axios.get("http://localhost:8080/api/expenses/monthly-total", config)
+        ]);
         
-        // 2. Safely parse data stream from custom backend ApiResponse payload wrapper
+        // Safely parse data streams from custom backend ApiResponse payload wrappers
         const liveIncome = incomeResponse.data && incomeResponse.data.success ? incomeResponse.data.data : 0;
+        const liveExpense = expenseResponse.data && expenseResponse.data.success ? expenseResponse.data.data : 0;
 
-        // NOTE: Mirror this pattern when integrating your live Expense module endpoints later!
-        const liveExpense = 0; 
         const liveSavings = Math.max(0, liveIncome - liveExpense);
         const liveBudgetUsage = liveIncome > 0 ? Math.round((liveExpense / liveIncome) * 100) : 0;
         
@@ -139,7 +141,7 @@ export default function DashboardOverviewPage() {
               <div
                 className="progress-bar bg-warning rounded-pill"
                 role="progressbar"
-                style={{ width: `${metrics.budgetUsedPercentage}%` }}
+                style={{ width: `${Math.min(metrics.budgetUsedPercentage, 100)}%` }}
                 aria-valuenow={metrics.budgetUsedPercentage}
                 aria-valuemin="0"
                 aria-valuemax="100"
@@ -201,7 +203,7 @@ export default function DashboardOverviewPage() {
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
-          from { opacity: 1; transform: translateY(0); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

@@ -13,7 +13,6 @@ import java.util.List;
 @Repository
 public interface FinancialGoalRepository extends JpaRepository<FinancialGoal, Long> {
 
-    // Added the missing query methods that the service layer relies on
     List<FinancialGoal> findByUser(User user);
 
     List<FinancialGoal> findByUserAndStatus(User user, String status);
