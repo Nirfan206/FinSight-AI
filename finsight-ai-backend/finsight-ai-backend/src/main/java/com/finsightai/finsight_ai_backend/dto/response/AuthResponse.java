@@ -10,13 +10,14 @@ import lombok.*;
 public class AuthResponse {
 
     private Long userId;
-
     private String fullName;
-
     private String email;
-
     private String role;
-
     private String token;
+    private String refreshToken;
 
+    @Builder.Default
+    private String tokenType = "Bearer";
+
+    private long expiresIn;
 }

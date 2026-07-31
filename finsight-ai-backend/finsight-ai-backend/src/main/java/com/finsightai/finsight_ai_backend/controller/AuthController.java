@@ -1,6 +1,7 @@
 package com.finsightai.finsight_ai_backend.controller;
 
 import com.finsightai.finsight_ai_backend.dto.request.LoginRequest;
+import com.finsightai.finsight_ai_backend.dto.request.RefreshTokenRequest;
 import com.finsightai.finsight_ai_backend.dto.request.RegisterRequest;
 import com.finsightai.finsight_ai_backend.dto.response.ApiResponse;
 import com.finsightai.finsight_ai_backend.dto.response.AuthResponse;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class AuthController {
 
     private final AuthService authService;
@@ -29,7 +30,7 @@ public class AuthController {
                 .body(
                         ApiResponse.<AuthResponse>builder()
                                 .success(true)
-                                .message("Registration successful")
+                                .message("Registration successful across core clusters.")
                                 .data(response)
                                 .build()
                 );
@@ -44,10 +45,39 @@ public class AuthController {
         return ResponseEntity.ok(
                 ApiResponse.<AuthResponse>builder()
                         .success(true)
-                        .message("Login successful")
+                        .message("Login successful. Session context established.")
                         .data(response)
                         .build()
         );
     }
 
+    @PostMapping("/refresh-token") // Double check your frontend api/authApi.js routes match this exact string mapping!
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest request) {
+
+        AuthResponse response = authService.refreshToken(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<AuthResponse>builder()
+                        .success(true)
+                        .message("Token refreshed successfully.")
+                        .data(response)
+                        .build()
+        );
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Object>> logout(
+            @Valid @RequestBody RefreshTokenRequest request) {
+
+        authService.logout(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.builder()
+                        .success(true)
+                        .message("Logged out successfully. Token reference revoked.")
+                        .data(null)
+                        .build()
+        );
+    }
 }

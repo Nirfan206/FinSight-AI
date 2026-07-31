@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/authApi";
+import { useAuth } from "../context/AuthContext";
 import Footer from "../components/Footer";
 import NavBar from "../components/NavBar";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -43,20 +45,38 @@ function LoginPage() {
           password: formData.password,
         });
 
-        alert(response.message || "Login Successful");
-        console.log(response);
+        console.log("Raw Auth Response:", response);
 
-        if (response.token) {
-          localStorage.setItem("token", response.token);
+        // Smart extractor looks for token directly, or nested within standard response blocks
+        const targetToken = response.token || response.data?.token;
+        const targetUser = response.user || response.data?.user || { fullName: "Irfan Nanasana", email: formData.email };
+
+        if (targetToken) {
+          alert(response.message || "Login Successful!");
+          login(targetToken, targetUser);
+        } else {
+          // Fallback mechanism if the backend sends a plain token string directly
+          if (typeof response === "string" && response.length > 20) {
+            alert("Login Successful!");
+            login(response, targetUser);
+          } else {
+            alert("Auth system configuration failure. Token tracking context missing.");
+          }
         }
 
-        navigate("/");
       } catch (error) {
         console.error(error);
         if (error.response && error.response.data) {
-          alert(error.response.data.message);
+          const errorData = error.response.data;
+          if (typeof errorData === 'object' && errorData.message) {
+            alert(`Login Failed: ${errorData.message}`);
+          } else if (typeof errorData === 'string') {
+            alert(errorData);
+          } else {
+            alert(`Server Error: ${JSON.stringify(errorData)}`);
+          }
         } else {
-          alert("Server not reachable");
+          alert("Server not reachable. Please check your network connection.");
         }
       }
     }
@@ -135,6 +155,10 @@ function LoginPage() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .is-invalid { border-color: #dc3545 !important; }
+      `}</style>
 
       <Footer />
     </>

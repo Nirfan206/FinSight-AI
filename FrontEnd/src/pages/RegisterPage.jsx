@@ -44,8 +44,19 @@ export default function RegisterPage() {
 
     } catch (error) {
       console.error(error);
+      
+      // FIXED: Safely parsing complex Spring Boot validation objects, maps, or message strings
       if (error.response && error.response.data) {
-        alert(error.response.data.message);
+        const errorData = error.response.data;
+        
+        if (typeof errorData === 'object' && errorData.message) {
+          alert(errorData.message);
+        } else if (typeof errorData === 'string') {
+          alert(errorData);
+        } else {
+          // Fallback to display field validation errors (e.g., password criteria failures) cleanly
+          alert(JSON.stringify(errorData));
+        }
       } else {
         alert("Server not reachable");
       }
