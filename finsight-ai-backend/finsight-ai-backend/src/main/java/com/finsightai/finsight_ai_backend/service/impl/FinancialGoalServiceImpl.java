@@ -37,7 +37,12 @@ public class FinancialGoalServiceImpl implements FinancialGoalService {
         FinancialGoal goal = new FinancialGoal();
         goal.setGoalName(request.getGoalName());
         goal.setTargetAmount(request.getTargetAmount());
-        goal.setCurrentAmount(request.getCurrentAmount() != null ? request.getCurrentAmount() : BigDecimal.ZERO);
+        //goal.setCurrentAmount(request.getCurrentAmount() != null ? request.getCurrentAmount() : BigDecimal.ZERO);
+        goal.setCurrentAmount(
+                request.getCurrentAmount() != null
+                        ? request.getCurrentAmount()
+                        : BigDecimal.ZERO
+        );
         goal.setTargetDate(request.getTargetDate());
         goal.setStatus("IN_PROGRESS");
         goal.setUser(user);
@@ -61,7 +66,7 @@ public class FinancialGoalServiceImpl implements FinancialGoalService {
         goal.setCurrentAmount(request.getCurrentAmount());
         goal.setTargetDate(request.getTargetDate());
 
-        if (request.getStatus() != null) {
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
             goal.setStatus(request.getStatus());
         } else {
             evaluateGoalStatus(goal);

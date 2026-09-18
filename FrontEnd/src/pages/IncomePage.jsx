@@ -31,14 +31,17 @@ export default function IncomePage() {
       setErrorMessage("");
       setLoading(true);
 
-      const res = await api.get("/api/incomes");
+      // FIXED: Removed duplicate "/api" segment since baseURL handles it
+      const res = await api.get("/incomes");
 
       if (res.data && res.data.success) {
         const payload = res.data.data;
-        setIncomes(payload && payload.content ? payload.content : payload || []);
+        setIncomes(payload && payload.content ? payload.content : (Array.isArray(payload) ? payload : []));
       }
     } catch (err) {
-      console.warn("Could not load incomes, starting from an empty list:", err);
+      console.warn("Could not load incomes:", err);
+      const serverMsg = err?.response?.data?.message || err?.message || "An unexpected error occurred loading incomes.";
+      setErrorMessage(serverMsg);
       setIncomes([]);
     } finally {
       setLoading(false);
@@ -71,11 +74,10 @@ export default function IncomePage() {
         recordDate: formData.recordDate
       };
 
-      const res = await api.post("/api/incomes", payload);
+      // FIXED: Removed duplicate "/api" segment
+      const res = await api.post("/incomes", payload);
 
       if (res.data && res.data.success) {
-        const nextRecord = res.data.data;
-
         triggerModalClose();
 
         setFormData({
@@ -86,51 +88,59 @@ export default function IncomePage() {
           recordDate: new Date().toISOString().split("T")[0]
         });
 
-        setIncomes((prev) => [nextRecord, ...prev]);
+        fetchIncomes();
 
         if (setMetrics) {
           setMetrics((prev) => {
-            const updatedIncome = prev.totalIncome + targetAmount;
+            const currentTotal = prev?.totalIncome || 0;
+            const currentExpenses = prev?.totalExpenses || 0;
+            const updatedIncome = currentTotal + targetAmount;
             return {
               ...prev,
               totalIncome: updatedIncome,
-              currentSavings: Math.max(0, updatedIncome - prev.totalExpenses)
+              currentSavings: Math.max(0, updatedIncome - currentExpenses)
             };
           });
         }
       }
     } catch (err) {
       console.error("Income save failed:", err);
-      setErrorMessage(err.response?.data?.message || "Could not save this income entry.");
+      const serverMsg = err?.response?.data?.message || err?.message || "Could not save this income entry.";
+      setErrorMessage(`Save Failed: ${serverMsg}`);
     }
   };
 
   const handleDelete = async (id, recordAmount) => {
-    if (!window.confirm("Delete this income entry?")) return;
+    if (!window.confirm("Delete this income entry permanently?")) return;
     try {
       setErrorMessage("");
-      const res = await api.delete(`/api/incomes/${id}`);
+      // FIXED: Removed duplicate "/api" segment
+      const res = await api.delete(`/incomes/${id}`);
       if (res.data && res.data.success) {
-        setIncomes((prev) => prev.filter((item) => item.incomeId !== id));
+        setIncomes((prev) => prev.filter((item) => (item.incomeId || item.id) !== id));
 
         if (setMetrics) {
           setMetrics((prev) => {
-            const updatedIncome = Math.max(0, prev.totalIncome - recordAmount);
+            const currentTotal = prev?.totalIncome || 0;
+            const currentExpenses = prev?.totalExpenses || 0;
+            const updatedIncome = Math.max(0, currentTotal - recordAmount);
             return {
               ...prev,
               totalIncome: updatedIncome,
-              currentSavings: Math.max(0, updatedIncome - prev.totalExpenses)
+              currentSavings: Math.max(0, updatedIncome - currentExpenses)
             };
           });
         }
       }
     } catch (err) {
-      setErrorMessage("Could not delete this entry.");
+      const serverMsg = err?.response?.data?.message || err?.message || "Could not delete this entry.";
+      setErrorMessage(serverMsg);
     }
   };
 
-  const processedIncomes = incomes
+  const processedIncomes = (incomes || [])
     .filter((item) => {
+      if (!item) return false;
       const sourceStr = item.source ? String(item.source) : "";
       const descStr = item.description ? String(item.description) : "";
       const matchSearch =
@@ -140,12 +150,13 @@ export default function IncomePage() {
       return matchSearch && matchCategory;
     })
     .sort((a, b) => {
-      const dateB = new Date(b.recordDate);
-      const dateA = new Date(a.recordDate);
+      if (!a || !b) return 0;
+      const dateB = new Date(b.recordDate || 0);
+      const dateA = new Date(a.recordDate || 0);
       if (sortBy === "dateDesc") return dateB - dateA;
       if (sortBy === "dateAsc") return dateA - dateB;
-      if (sortBy === "amountDesc") return b.amount - a.amount;
-      if (sortBy === "amountAsc") return a.amount - b.amount;
+      if (sortBy === "amountDesc") return (b.amount || 0) - (a.amount || 0);
+      if (sortBy === "amountAsc") return (a.amount || 0) - (b.amount || 0);
       return 0;
     });
 
@@ -167,6 +178,42 @@ export default function IncomePage() {
 
       {errorMessage && <div className="alert alert-danger rounded-3 mb-4">{errorMessage}</div>}
 
+      <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <input
+              type="text"
+              className="form-control border-light-subtle rounded-3"
+              placeholder="🔍 Search source or note..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-md-4">
+            <select
+              className="form-select border-light-subtle rounded-3"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="col-12 col-sm-6 col-md-4">
+            <select
+              className="form-select border-light-subtle rounded-3"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="dateDesc">Date: Latest First</option>
+              <option value="dateAsc">Date: Oldest First</option>
+              <option value="amountDesc">Amount: High to Low</option>
+              <option value="amountAsc">Amount: Low to High</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {loading ? (
         <div className="p-5 text-center"><div className="spinner-border text-primary" /></div>
       ) : incomes.length === 0 ? (
@@ -183,82 +230,46 @@ export default function IncomePage() {
           </button>
         </div>
       ) : (
-        <>
-          <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-            <div className="row g-3">
-              <div className="col-12 col-md-4">
-                <input
-                  type="text"
-                  className="form-control border-light-subtle rounded-3"
-                  placeholder="🔍 Search source or note..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="col-12 col-sm-6 col-md-4">
-                <select
-                  className="form-select border-light-subtle rounded-3"
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="col-12 col-sm-6 col-md-4">
-                <select
-                  className="form-select border-light-subtle rounded-3"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="dateDesc">Date: Latest First</option>
-                  <option value="dateAsc">Date: Oldest First</option>
-                  <option value="amountDesc">Amount: High to Low</option>
-                  <option value="amountAsc">Amount: Low to High</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
-            {processedIncomes.length === 0 ? (
-              <div className="p-5 text-center text-muted">No matching income entries.</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light text-secondary border-bottom border-light-subtle">
-                    <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="py-3">Source</th>
-                      <th className="py-3">Category</th>
-                      <th className="py-3">Notes</th>
-                      <th className="py-3 text-end">Amount</th>
-                      <th className="px-4 py-3 text-center">Actions</th>
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light text-secondary border-bottom border-light-subtle">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="py-3">Source</th>
+                  <th className="py-3">Category</th>
+                  <th className="py-3">Notes</th>
+                  <th className="py-3 text-end">Amount</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processedIncomes.map((item) => {
+                  const currentId = item.incomeId || item.id;
+                  return (
+                    <tr key={currentId || Math.random()} className="border-bottom border-light-subtle">
+                      <td className="px-4 fw-medium text-dark">{item.recordDate || "—"}</td>
+                      <td className="fw-semibold text-primary">{item.source || "—"}</td>
+                      <td><span className="badge bg-success-subtle text-success px-3 py-1 rounded-pill fw-medium">{item.category}</span></td>
+                      <td className="text-muted small text-truncate" style={{ maxWidth: "200px" }}>{item.description || "—"}</td>
+                      <td className="text-end fw-bold text-success font-monospace px-2">
+                        {item.amount != null ? `₹${item.amount.toLocaleString()}` : "₹0"}
+                      </td>
+                      <td className="px-4 text-center">
+                        <button 
+                          className="btn btn-link text-danger p-1 text-decoration-none" 
+                          onClick={() => handleDelete(currentId, item.amount || 0)}
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {processedIncomes.map((item) => (
-                      <tr key={item.incomeId} className="border-bottom border-light-subtle">
-                        <td className="px-4 fw-medium text-dark">{item.recordDate}</td>
-                        <td className="fw-semibold text-primary">{item.source}</td>
-                        <td><span className="badge bg-success-subtle text-success px-3 py-1 rounded-pill fw-medium">{item.category}</span></td>
-                        <td className="text-muted small text-truncate" style={{ maxWidth: "200px" }}>{item.description || "—"}</td>
-                        <td className="text-end fw-bold text-success font-monospace px-2">
-                          {item.amount != null ? `₹${item.amount.toLocaleString()}` : "₹0"}
-                        </td>
-                        <td className="px-4 text-center">
-                          <button className="btn btn-link text-danger p-1 text-decoration-none" onClick={() => handleDelete(item.incomeId, item.amount)}>
-                            🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </>
+        </div>
       )}
 
       <div className="modal fade" id="addIncomeModal" tabIndex="-1" aria-hidden="true">

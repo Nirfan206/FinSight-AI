@@ -36,13 +36,24 @@ public class IncomeController {
             @Valid @RequestBody IncomeRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        IncomeResponse response = incomeService.createIncome(request, principal);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<IncomeResponse>builder()
-                        .success(true)
-                        .message("Income entry registered inside transaction cluster.")
-                        .data(response)
-                        .build());
+        try {
+            log.info("Processing income registration telemetry: Source={}, Amount={}", request.getSource(), request.getAmount());
+            IncomeResponse response = incomeService.createIncome(request, principal);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<IncomeResponse>builder()
+                            .success(true)
+                            .message("Income entry registered inside transaction cluster.")
+                            .data(response)
+                            .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING INCOME CREATION: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<IncomeResponse>builder()
+                            .success(false)
+                            .message("Server Save Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @PutMapping("/{id}")
@@ -51,12 +62,22 @@ public class IncomeController {
             @Valid @RequestBody IncomeRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        IncomeResponse response = incomeService.updateIncome(id, request, principal);
-        return ResponseEntity.ok(ApiResponse.<IncomeResponse>builder()
-                .success(true)
-                .message("Income entry modifications committed.")
-                .data(response)
-                .build());
+        try {
+            IncomeResponse response = incomeService.updateIncome(id, request, principal);
+            return ResponseEntity.ok(ApiResponse.<IncomeResponse>builder()
+                    .success(true)
+                    .message("Income entry modifications committed.")
+                    .data(response)
+                    .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING INCOME UPDATE [ID: {}]: ", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<IncomeResponse>builder()
+                            .success(false)
+                            .message("Server Update Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @GetMapping("/{id}")
@@ -80,7 +101,6 @@ public class IncomeController {
         try {
             Page<IncomeResponse> response = incomeService.getAllIncomes(principal, pageable);
 
-            // If the service returns null or is completely empty, ensure we send a valid Page object
             if (response == null) {
                 response = Page.empty(pageable);
             }
@@ -94,7 +114,6 @@ public class IncomeController {
             log.error("Failed to sync income parameters from the cluster for user: {}. Initializing zero-state baseline.",
                     principal.getUsername(), e);
 
-            // Fallback: Return a clean, empty page instead of breaking the connection cluster
             return ResponseEntity.ok(ApiResponse.<Page<IncomeResponse>>builder()
                     .success(true)
                     .message("Cluster sync initialized to empty baseline ledger.")
@@ -136,12 +155,22 @@ public class IncomeController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        incomeService.deleteIncome(id, principal);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Income item purged from memory arrays permanently.")
-                .data(null)
-                .build());
+        try {
+            incomeService.deleteIncome(id, principal);
+            return ResponseEntity.ok(ApiResponse.<Void>builder()
+                    .success(true)
+                    .message("Income item purged from memory arrays permanently.")
+                    .data(null)
+                    .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING INCOME PURGE [ID: {}]: ", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<Void>builder()
+                            .success(false)
+                            .message("Server Purge Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @GetMapping("/monthly-total")

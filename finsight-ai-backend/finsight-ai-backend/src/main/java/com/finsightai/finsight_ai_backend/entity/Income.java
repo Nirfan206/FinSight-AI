@@ -13,6 +13,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(callSuper = true)
+@AttributeOverride(name = "recordDate", column = @Column(name = "record_date", nullable = false))
 public class Income extends FinancialRecord {
 
     @Id

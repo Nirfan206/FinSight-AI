@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
-@Component
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class GoalDeadlineScheduler {
 
@@ -21,39 +21,65 @@ public class GoalDeadlineScheduler {
     private final NotificationService notificationService;
 
     /**
-     * Runs automatically every single day at midnight (00:00:00) to find goals
-     * that have passed their deadline target date without reaching their required amount.
+     * Runs every day at 12:00 AM.
+     * Finds overdue financial goals, marks them as FAILED,
+     * and sends a notification to the respective user.
      */
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
     public void processOverdueGoals() {
-        log.info("Starting automated background sweep for overdue financial goals...");
+
+        log.info("========== Goal Deadline Scheduler Started ==========");
 
         LocalDate today = LocalDate.now();
 
-        // Custom repository query finding all active "IN_PROGRESS" goals where target date is strictly before today
-        List<FinancialGoal> overdueGoals = financialGoalRepository.findOverdueGoalsGlobally(today);
+        List<FinancialGoal> overdueGoals =
+                financialGoalRepository.findOverdueGoalsGlobally(today);
 
         if (overdueGoals.isEmpty()) {
-            log.info("Automated sweep complete: No overdue milestones found.");
+            log.info("No overdue financial goals found.");
             return;
         }
 
-        log.info("Found {} overdue goals. Initiating state adjustments and alert dispatch...", overdueGoals.size());
+        log.info("Found {} overdue financial goal(s).", overdueGoals.size());
 
         for (FinancialGoal goal : overdueGoals) {
-            goal.setStatus("FAILED");
-            financialGoalRepository.save(goal);
 
-            // Directly dispatches the persistent notification trigger to the user database reference
-            notificationService.createNotification(
-                    goal.getUser(),
-                    "Goal Deadline Missed",
-                    String.format("Your target date for '%s' has passed without meeting the target amount.", goal.getGoalName()),
-                    "GOAL_UPDATE"
-            );
+            try {
+
+                goal.setStatus("FAILED");
+
+                notificationService.createNotification(
+                        goal.getUser(),
+                        "Goal Deadline Missed",
+                        String.format(
+                                "Your financial goal '%s' has passed its target date without reaching the target amount.",
+                                goal.getGoalName()
+                        ),
+                        "GOAL_UPDATE"
+                );
+
+                log.info(
+                        "Processed overdue goal '{}' for user '{}'.",
+                        goal.getGoalName(),
+                        goal.getUser().getEmail()
+                );
+
+            } catch (Exception ex) {
+
+                log.error(
+                        "Failed to process financial goal ID {}",
+                        goal.getGoalId(),
+                        ex
+                );
+            }
         }
 
-        log.info("Successfully updated state parameters and sent alerts for all {} overdue goals.", overdueGoals.size());
+        financialGoalRepository.saveAll(overdueGoals);
+
+        log.info(
+                "Goal Deadline Scheduler completed successfully. {} goal(s) updated.",
+                overdueGoals.size()
+        );
     }
 }

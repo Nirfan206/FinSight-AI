@@ -36,13 +36,24 @@ public class ExpenseController {
             @Valid @RequestBody ExpenseRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        ExpenseResponse response = expenseService.createExpense(request, principal);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<ExpenseResponse>builder()
-                        .success(true)
-                        .message("Expense entry registered inside transaction cluster.")
-                        .data(response)
-                        .build());
+        try {
+            log.info("Processing expense creation telemetry: Merchant={}, Amount={}", request.getMerchant(), request.getAmount());
+            ExpenseResponse response = expenseService.createExpense(request, principal);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<ExpenseResponse>builder()
+                            .success(true)
+                            .message("Expense entry registered inside transaction cluster.")
+                            .data(response)
+                            .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING EXPENSE CREATION: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<ExpenseResponse>builder()
+                            .success(false)
+                            .message("Server Save Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @PutMapping("/{id}")
@@ -51,12 +62,22 @@ public class ExpenseController {
             @Valid @RequestBody ExpenseRequest request,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        ExpenseResponse response = expenseService.updateExpense(id, request, principal);
-        return ResponseEntity.ok(ApiResponse.<ExpenseResponse>builder()
-                .success(true)
-                .message("Expense entry modifications committed.")
-                .data(response)
-                .build());
+        try {
+            ExpenseResponse response = expenseService.updateExpense(id, request, principal);
+            return ResponseEntity.ok(ApiResponse.<ExpenseResponse>builder()
+                    .success(true)
+                    .message("Expense entry modifications committed.")
+                    .data(response)
+                    .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING EXPENSE UPDATE [ID: {}]: ", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<ExpenseResponse>builder()
+                            .success(false)
+                            .message("Server Update Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @GetMapping("/{id}")
@@ -132,12 +153,22 @@ public class ExpenseController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        expenseService.deleteExpense(id, principal);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Expense item purged from memory arrays permanently.")
-                .data(null)
-                .build());
+        try {
+            expenseService.deleteExpense(id, principal);
+            return ResponseEntity.ok(ApiResponse.<Void>builder()
+                    .success(true)
+                    .message("Expense item purged from memory arrays permanently.")
+                    .data(null)
+                    .build());
+        } catch (Exception e) {
+            log.error("CRITICAL TRANSACTION FAILURE DURING EXPENSE PURGE [ID: {}]: ", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<Void>builder()
+                            .success(false)
+                            .message("Server Purge Crash: " + e.getClass().getSimpleName() + " - " + e.getMessage())
+                            .data(null)
+                            .build());
+        }
     }
 
     @GetMapping("/monthly-total")

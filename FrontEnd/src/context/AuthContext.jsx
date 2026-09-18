@@ -14,8 +14,13 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem("user");
 
         if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            try {
+                setToken(storedToken);
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error("Failed to parse corrupted user session data:", e);
+                logout(); // Self-heal by clearing broken configurations
+            }
         }
         setLoading(false);
     }, []);
@@ -32,16 +37,26 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        // Clear all potential auth namespace indicators from storage arrays
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
+        localStorage.removeItem("authToken");
         localStorage.removeItem("user");
+        
+        // Wipe local component memory context instantly
         setToken(null);
         setUser(null);
+        
         navigate("/login");
     };
 
     if (loading) {
-        return <div className="d-flex justify-content-center align-items-center vh-100">Loading Session...</div>;
+        return (
+            <div className="d-flex justify-content-center align-items-center vh-100">
+                <div className="spinner-border text-primary me-2" role="status"></div>
+                <span>Loading Session Matrix...</span>
+            </div>
+        );
     }
 
     return (

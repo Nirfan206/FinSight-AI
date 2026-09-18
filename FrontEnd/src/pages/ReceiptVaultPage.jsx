@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/axiosConfig';
+import axios from 'axios'; // FIXED: Standard un-intercepted axios for absolute cloud URLs
 
 export default function ReceiptVaultPage() {
   const [receipts, setReceipts] = useState([]);
@@ -16,18 +17,15 @@ export default function ReceiptVaultPage() {
   const fetchReceipts = async () => {
     try {
       setLoading(true);
-      // Production backend endpoint integration reference:
-      // const res = await axios.get("http://localhost:8080/api/receipts", { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
-      
-      setTimeout(() => {
-        setReceipts([
-          { id: 1, fileName: "zomato_dinner_bill.png", uploadDate: "2026-07-26", fileSize: "1.2 MB", status: "PROCESSED", s3Url: "#" },
-          { id: 2, fileName: "july_rent_invoice.pdf", uploadDate: "2026-07-02", fileSize: "2.4 MB", status: "PROCESSED", s3Url: "#" }
-        ]);
-        setLoading(false);
-      }, 600);
+      setErrorMessage('');
+      const res = await api.get("/receipts");
+      if (res.data && res.data.success) {
+        setReceipts(res.data.data || []);
+      }
     } catch (err) {
-      setErrorMessage("Failed to sync structural asset links from the repository.");
+      console.error("Failed to fetch vault records:", err);
+      setErrorMessage("Failed to sync structural asset links from the repository partition.");
+    } finally {
       setLoading(false);
     }
   };
@@ -36,7 +34,6 @@ export default function ReceiptVaultPage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Strict validation ensuring payload meets blueprint rules: JPG, PNG, PDF
     const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
       setErrorMessage("Invalid document format. The ledger only accepts JPG, PNG, or PDF parameters.");
@@ -45,6 +42,7 @@ export default function ReceiptVaultPage() {
     }
 
     setErrorMessage('');
+    setSuccessMessage('');
     setSelectedFile(file);
   };
 
@@ -58,37 +56,64 @@ export default function ReceiptVaultPage() {
     try {
       setUploading(true);
       setErrorMessage('');
+      setSuccessMessage('');
       
-      // Production Multipart AWS S3 Integration Endpoint context:
-      // const res = await axios.post("http://localhost:8080/api/receipts/upload", formData, {
-      //   headers: { 
-      //     "Content-Type": "multipart/form-data",
-      //     Authorization: `Bearer ${localStorage.getItem("token")}` 
-      //   }
-      // });
+      const res = await api.post("/receipts/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
 
-      setTimeout(() => {
-        const mockNewReceipt = {
-          id: Date.now(),
-          fileName: selectedFile.name,
-          uploadDate: new Date().toISOString().split('T')[0],
-          fileSize: `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
-          status: "PROCESSED",
-          s3Url: "#"
-        };
-
-        setReceipts(prev => [mockNewReceipt, ...prev]);
-        setSuccessMessage("Document pushed to AWS S3 bucket layer successfully. Running OCR simulation routines.");
+      if (res.data && res.data.success) {
+        setSuccessMessage("Document pushed to cloud storage bucket layer successfully.");
         setSelectedFile(null);
-        setUploading(false);
-        
-        // Reset raw HTML input element node anchor
         document.getElementById("receiptFileInput").value = "";
-      }, 1200);
+        fetchReceipts();
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setErrorMessage(err.response?.data?.message || "Multipart transmission failure inside storage wrapper.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (receiptId) => {
+    if (!window.confirm("Evict this tracking document permanently?")) return;
+    try {
+      setErrorMessage('');
+      setSuccessMessage('');
+      const res = await api.delete(`/receipts/${receiptId}`);
+      if (res.data && res.data.success) {
+        setSuccessMessage("Document vector cleared from file system arrays successfully.");
+        setReceipts(prev => prev.filter(item => item.receiptId !== receiptId));
+      }
+    } catch (err) {
+      setErrorMessage("Failed to complete the deletion request.");
+    }
+  };
+
+  // FIXED: Bypasses local custom api interceptor contexts by executing via standard un-configured axios
+  const handleViewDocument = async (fileUrl) => {
+    try {
+      setErrorMessage('');
+      
+      // Request file as binary blob payload securely using raw axios targeting absolute S3 end paths
+      const response = await axios.get(fileUrl, {
+        responseType: 'blob'
+      });
+
+      // Construct a localized internal browser DOM tracking URL allocation reference
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const localizedBlobUrl = window.URL.createObjectURL(blob);
+
+      // Trigger standard clean window context breakout cleanly
+      window.open(localizedBlobUrl, '_blank');
+
+      // Clear memory buffers natively once browser render engine yields control threads
+      setTimeout(() => window.URL.revokeObjectURL(localizedBlobUrl), 100);
 
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || "Multipart transmission failure inside storage wrapper.");
-      setUploading(false);
+      console.error("Failed to parse resource stream inline view layout context: ", err);
+      setErrorMessage("Authorization refused or asset file missing: Unable to secure viewer stream.");
     }
   };
 
@@ -103,11 +128,9 @@ export default function ReceiptVaultPage() {
       {successMessage && <div className="alert alert-success rounded-3 small">{successMessage}</div>}
 
       <div className="row g-4">
-        {/* Document Multi-part Selector Node */}
         <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm rounded-4 p-4 bg-white">
             <h5 className="fw-bold text-dark mb-3">Push Document Channel</h5>
-            
             <form onSubmit={handleUpload}>
               <div className="mb-3">
                 <div className="p-4 border border-dashed border-light-subtle bg-light rounded-4 text-center position-relative">
@@ -137,18 +160,12 @@ export default function ReceiptVaultPage() {
                 className="btn btn-primary w-100 rounded-3 fw-semibold py-2"
                 disabled={!selectedFile || uploading}
               >
-                {uploading ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Encrypting Parameters...
-                  </>
-                ) : "🚀 Transmit to Cloud Container"}
+                {uploading ? "Encrypting Parameters..." : "🚀 Transmit to Cloud Container"}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Expandable Gallery Grid Workspace */}
         <div className="col-12 col-lg-8">
           <div className="card border-0 shadow-sm rounded-4 bg-white overflow-hidden h-100">
             <div className="px-4 py-3 border-bottom border-light-subtle bg-light-subtle">
@@ -166,26 +183,31 @@ export default function ReceiptVaultPage() {
                     <tr>
                       <th className="px-4 py-2.5">Target Identifier</th>
                       <th className="py-2.5">Staging Date</th>
-                      <th className="py-2.5">Footprint</th>
-                      <th className="py-2.5">OCR Status</th>
-                      <th className="px-4 py-2.5 text-end">Action</th>
+                      <th className="px-4 py-2.5 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="small">
                     {receipts.map((receipt) => (
-                      <tr key={receipt.id} className="border-bottom border-light-subtle">
-                        <td className="px-4 fw-semibold text-truncate" style={{ maxWidth: "180px" }}>{receipt.fileName}</td>
-                        <td className="text-muted">{receipt.uploadDate}</td>
-                        <td className="font-monospace text-muted">{receipt.fileSize}</td>
-                        <td>
-                          <span className="badge bg-success-subtle text-success rounded-pill fw-medium px-2.5 py-1">
-                            {receipt.status}
-                          </span>
-                        </td>
-                        <td className="px-4 text-end">
-                          <a href={receipt.s3Url} className="btn btn-sm btn-light border border-light-subtle rounded-3 px-2.5 py-1 fw-medium" target="_blank" rel="noreferrer">
-                            👁️ View
-                          </a>
+                      <tr key={receipt.receiptId} className="border-bottom border-light-subtle">
+                        <td className="px-4 fw-semibold text-truncate" style={{ maxWidth: "250px" }}>{receipt.fileName}</td>
+                        <td className="text-muted">{receipt.uploadDate ? new Date(receipt.uploadDate).toLocaleDateString() : "—"}</td>
+                        <td className="px-4 text-center">
+                          <div className="d-flex justify-content-center gap-2">
+                            <button 
+                              type="button"
+                              className="btn btn-sm btn-light border border-light-subtle rounded-3 px-2.5 py-1 fw-medium"
+                              onClick={() => handleViewDocument(receipt.fileUrl)}
+                            >
+                              👁️ View
+                            </button>
+                            <button 
+                              type="button"
+                              className="btn btn-sm btn-outline-danger rounded-3 px-2.5 py-1"
+                              onClick={() => handleDelete(receipt.receiptId)}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

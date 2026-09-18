@@ -24,7 +24,7 @@ export default function FinancialGoalsPage() {
     try {
       setLoading(true);
       setErrorMessage("");
-      const res = await api.get("/api/goals");
+      const res = await api.get("/goals");
       if (res.data && res.data.success) {
         setGoals(res.data.data || []);
       }
@@ -52,7 +52,7 @@ export default function FinancialGoalsPage() {
         targetDate: formData.targetDate
       };
 
-      const res = await api.post("/api/goals", payload);
+      const res = await api.post("/goals", payload);
 
       if (res.data && res.data.success) {
         await fetchGoals();
@@ -75,7 +75,7 @@ export default function FinancialGoalsPage() {
       setErrorMessage("");
       const targetVal = parseFloat(contributionAmount);
 
-      const res = await api.patch(`/api/goals/${currentId}/contribution?amount=${targetVal}`, {});
+      const res = await api.patch(`/goals/${currentId}/contribution?amount=${targetVal}`, {});
 
       if (res.data && res.data.success) {
         await fetchGoals();
@@ -94,7 +94,7 @@ export default function FinancialGoalsPage() {
     if (!window.confirm("Delete this goal?")) return;
     try {
       setErrorMessage("");
-      const res = await api.delete(`/api/goals/${id}`);
+      const res = await api.delete(`/goals/${id}`);
       if (res.data && res.data.success) {
         setGoals((prev) => prev.filter((item) => item.goalId !== id));
       }

@@ -101,7 +101,8 @@ public class BudgetServiceImpl implements BudgetService {
         Budget budget = budgetOpt.get();
         BigDecimal limit = budget.getMonthlyLimit();
 
-        BigDecimal currentSpend = expenseRepository.sumExpenseByUserAndCategoryAndMonth(user, category, month, year);
+        //BigDecimal currentSpend = expenseRepository.sumExpenseByUserAndCategoryAndMonth(user.getUserId(), category, month, year);
+        BigDecimal currentSpend = expenseRepository.sumExpenseByUserIdAndCategoryAndMonth(user.getUserId(), category, month, year);
         if (currentSpend == null || currentSpend.compareTo(BigDecimal.ZERO) <= 0 || limit.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }

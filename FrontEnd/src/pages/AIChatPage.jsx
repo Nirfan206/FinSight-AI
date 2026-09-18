@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api from "../api/axiosConfig"; // Integrated unified interceptor-driven API instance
 
 export default function AIChatPage() {
   const [messages, setMessages] = useState([]);
@@ -46,36 +46,28 @@ export default function AIChatPage() {
     setErrorMessage("");
 
     try {
-      // Production Gemini API proxy interface payload model mapping context:
-      // const res = await axios.post("http://localhost:8080/api/ai/chat", { prompt: textToSend }, {
-      //   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      // });
-      // setMessages((prev) => [...prev, { id: Date.now() + 1, sender: "ai", text: res.data.response }]);
+      // FIXED: Aligned payload property key with Spring Boot backend ('message')
+      const res = await api.post("/ai/chat", { message: textToSend });
 
-      // Mocking highly tailored response templates mirroring blueprint target behaviors
-      setTimeout(() => {
-        let aiResponseText = "I have scanned your financial configuration matrices. To construct explicit feedback pools, try tracking specific categories like Food or Travel inside your ledger framework panels.";
-        
-        const lowerText = textToSend.toLowerCase();
-        if (lowerText.includes("spend") || lowerText.includes("most")) {
-          aiResponseText = "Analyzing your cycle metrics: Your highest spending category is **Rent** (₹15,000), closely trailed by **Food** (₹9,200). Your Food consumption profile registers 20% higher than baseline allowances. Consider applying tight budgeting parameters to prevent capital structural leaks.";
-        } else if (lowerText.includes("save") || lowerText.includes("10,000")) {
-          aiResponseText = "To unlock a savings capacity of **₹10,000**, implement these two operational procedures:\n1. Limit your dining/restaurant outlays to reduce Food overheads by ₹2,200.\n2. Hold your variable Shopping allocations down to match structural rules. Reallocating this unused buffer into your *Emergency Runway Fund* node yields optimal safety results.";
-        }
-
+      // FIXED: Maps data payload cleanly to backend response format ('res.data.reply')
+      if (res.data && res.data.success) {
         setMessages((prev) => [
           ...prev,
-          {
-            id: Date.now() + 1,
-            sender: "ai",
-            text: aiResponseText
+          { 
+            id: Date.now() + 1, 
+            sender: "ai", 
+            text: res.data.reply || "Analysis processing completed successfully." 
           }
         ]);
-        setIsTyping(false);
-      }, 1000);
+      } else {
+        throw new Error("Target pipeline returned an unverified success layout frame.");
+      }
 
     } catch (err) {
-      setErrorMessage("Could not broadcast textual frame matrix to the Gemini execution cluster.");
+      console.error("AI dynamic chat transmission failure:", err);
+      const serverMessage = err?.response?.data?.message || err?.message || "Could not broadcast textual frame matrix to the Gemini execution cluster.";
+      setErrorMessage(`Telemetry Connection Error: ${serverMessage}`);
+    } finally {
       setIsTyping(false);
     }
   };
@@ -99,7 +91,7 @@ export default function AIChatPage() {
                 <div key={msg.id} className={`d-flex mb-4 ${isAi ? "justify-content-start" : "justify-content-end"}`}>
                   <div className={`d-flex gap-2.5 max-w-75 ${isAi ? "flex-row" : "flex-row-reverse"}`}>
                     <div 
-                      className={`rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 font-monospace shadow-sm`}
+                      className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 font-monospace shadow-sm"
                       style={{ 
                         width: "36px", 
                         height: "36px", 
@@ -190,7 +182,7 @@ export default function AIChatPage() {
         .max-w-75 { max-width: 75% !important; }
         .style-scroll-chat::-webkit-scrollbar { width: 4px; }
         .style-scroll-chat::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .hover-sidebar-btn:hover { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; transform: translateY(-1px); }
+        .hover-sidebar-btn:hover { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; transform: translateY(-3px); }
       `}</style>
     </div>
   );

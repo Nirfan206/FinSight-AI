@@ -29,8 +29,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new ResourceNotFoundException("User matrix reference context missing."));
 
         BigDecimal totalIncome = incomeRepository.sumIncomeByUserAndMonth(user, month, year);
-        BigDecimal totalExpense = expenseRepository.sumExpenseByUserAndMonth(user, month, year);
-
+        BigDecimal totalExpense = expenseRepository.sumExpenseByUserIdAndMonth(user.getUserId(), month, year);
         BigDecimal incomeVal = totalIncome != null ? totalIncome : BigDecimal.ZERO;
         BigDecimal expenseVal = totalExpense != null ? totalExpense : BigDecimal.ZERO;
         BigDecimal netSavings = incomeVal.subtract(expenseVal);

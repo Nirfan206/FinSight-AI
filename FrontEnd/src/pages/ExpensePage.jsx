@@ -31,7 +31,7 @@ export default function ExpensePage() {
       setErrorMessage("");
       setLoading(true);
 
-      const res = await api.get("/api/expenses");
+      const res = await api.get("/expenses");
 
       if (res.data && res.data.success) {
         const payload = res.data.data;
@@ -39,8 +39,7 @@ export default function ExpensePage() {
       }
     } catch (err) {
       console.warn("Could not load expenses, starting from an empty list:", err);
-      // Bulletproof error extraction for page load phase
-      const serverMessage = err?.response?.data?.message || err?.message || "An unexpected error occurred. Please try again later.";
+      const serverMessage = err?.response?.data?.message || err?.message || "An unexpected error occurred loading expenses.";
       setErrorMessage(serverMessage);
       setExpenses([]);
     } finally {
@@ -74,11 +73,9 @@ export default function ExpensePage() {
         recordDate: formData.recordDate
       };
 
-      const res = await api.post("/api/expenses", payload);
+      const res = await api.post("/expenses", payload);
 
       if (res.data && res.data.success) {
-        const nextRecord = res.data.data;
-
         triggerModalClose();
 
         setFormData({
@@ -89,16 +86,16 @@ export default function ExpensePage() {
           recordDate: new Date().toISOString().split("T")[0]
         });
 
-        setExpenses((prev) => [nextRecord, ...prev]);
+        fetchExpenses();
 
         if (setMetrics) {
           setMetrics((prev) => {
-            const currentTotal = prev?.totalExpense || 0;
+            const currentTotal = prev?.totalExpenses || 0;
             const currentIncome = prev?.totalIncome || 0;
             const updatedExpense = currentTotal + targetAmount;
             return {
               ...prev,
-              totalExpense: updatedExpense,
+              totalExpenses: updatedExpense,
               currentSavings: Math.max(0, currentIncome - updatedExpense)
             };
           });
@@ -106,28 +103,27 @@ export default function ExpensePage() {
       }
     } catch (err) {
       console.error("Expense save failed:", err);
-      // FIXED HERE: Absolute protection against reading fields from undefined server payloads
       const serverMessage = err?.response?.data?.message || err?.message || "Could not save this expense entry.";
-      setErrorMessage(serverMessage);
+      setErrorMessage(`Save Failed: ${serverMessage}`);
     }
   };
 
-  const handleDelete = async (id, recordAmount) => {
-    if (!window.confirm("Delete this expense entry?")) return;
+  const handleDelete = async (expenseId, recordAmount) => {
+    if (!window.confirm("Delete this expense entry permanently?")) return;
     try {
       setErrorMessage("");
-      const res = await api.delete(`/api/expenses/${id}`);
+      const res = await api.delete(`/expenses/${expenseId}`);
       if (res.data && res.data.success) {
-        setExpenses((prev) => prev.filter((item) => (item.expenseId || item.id) !== id));
+        setExpenses((prev) => prev.filter((item) => item.expenseId !== expenseId));
 
         if (setMetrics) {
           setMetrics((prev) => {
-            const currentTotal = prev?.totalExpense || 0;
+            const currentTotal = prev?.totalExpenses || 0;
             const currentIncome = prev?.totalIncome || 0;
             const updatedExpense = Math.max(0, currentTotal - recordAmount);
             return {
               ...prev,
-              totalExpense: updatedExpense,
+              totalExpenses: updatedExpense,
               currentSavings: Math.max(0, currentIncome - updatedExpense)
             };
           });
@@ -179,6 +175,42 @@ export default function ExpensePage() {
 
       {errorMessage && <div className="alert alert-danger rounded-3 mb-4">{errorMessage}</div>}
 
+      <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <input
+              type="text"
+              className="form-control border-light-subtle rounded-3"
+              placeholder="🔍 Search merchant or note..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-md-4">
+            <select
+              className="form-select border-light-subtle rounded-3"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="col-12 col-sm-6 col-md-4">
+            <select
+              className="form-select border-light-subtle rounded-3"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="dateDesc">Date: Latest First</option>
+              <option value="dateAsc">Date: Oldest First</option>
+              <option value="amountDesc">Amount: High to Low</option>
+              <option value="amountAsc">Amount: Low to High</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {loading ? (
         <div className="p-5 text-center"><div className="spinner-border text-danger" /></div>
       ) : expenses.length === 0 ? (
@@ -195,88 +227,46 @@ export default function ExpensePage() {
           </button>
         </div>
       ) : (
-        <>
-          <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-            <div className="row g-3">
-              <div className="col-12 col-md-4">
-                <input
-                  type="text"
-                  className="form-control border-light-subtle rounded-3"
-                  placeholder="🔍 Search merchant or note..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="col-12 col-sm-6 col-md-4">
-                <select
-                  className="form-select border-light-subtle rounded-3"
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="col-12 col-sm-6 col-md-4">
-                <select
-                  className="form-select border-light-subtle rounded-3"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="dateDesc">Date: Latest First</option>
-                  <option value="dateAsc">Date: Oldest First</option>
-                  <option value="amountDesc">Amount: High to Low</option>
-                  <option value="amountAsc">Amount: Low to High</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
-            {processedExpenses.length === 0 ? (
-              <div className="p-5 text-center text-muted">No matching expense entries.</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light text-secondary border-bottom border-light-subtle">
-                    <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="py-3">Merchant</th>
-                      <th className="py-3">Category</th>
-                      <th className="py-3">Notes</th>
-                      <th className="py-3 text-end">Amount</th>
-                      <th className="px-4 py-3 text-center">Actions</th>
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light text-secondary border-bottom border-light-subtle">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="py-3">Merchant</th>
+                  <th className="py-3">Category</th>
+                  <th className="py-3">Notes</th>
+                  <th className="py-3 text-end">Amount</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processedExpenses.map((item) => {
+                  const currentId = item.expenseId;
+                  return (
+                    <tr key={currentId || Math.random()} className="border-bottom border-light-subtle">
+                      <td className="px-4 fw-medium text-dark">{item.recordDate || "—"}</td>
+                      <td className="fw-semibold text-danger">{item.merchant || "—"}</td>
+                      <td><span className="badge bg-danger-subtle text-danger px-3 py-1 rounded-pill fw-medium">{item.category}</span></td>
+                      <td className="text-muted small text-truncate" style={{ maxWidth: "200px" }}>{item.description || "—"}</td>
+                      <td className="text-end fw-bold text-danger font-monospace px-2">
+                        {item.amount != null ? `₹${item.amount.toLocaleString()}` : "₹0"}
+                      </td>
+                      <td className="px-4 text-center">
+                        <button 
+                          className="btn btn-link text-danger p-1 text-decoration-none" 
+                          onClick={() => handleDelete(currentId, item.amount || 0)}
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {processedExpenses.map((item) => {
-                      const currentId = item.expenseId || item.id;
-                      return (
-                        <tr key={currentId || Math.random()} className="border-bottom border-light-subtle">
-                          <td className="px-4 fw-medium text-dark">{item.recordDate || "—"}</td>
-                          <td className="fw-semibold text-danger">{item.merchant || "—"}</td>
-                          <td><span className="badge bg-danger-subtle text-danger px-3 py-1 rounded-pill fw-medium">{item.category}</span></td>
-                          <td className="text-muted small text-truncate" style={{ maxWidth: "200px" }}>{item.description || "—"}</td>
-                          <td className="text-end fw-bold text-danger font-monospace px-2">
-                            {item.amount != null ? `₹${item.amount.toLocaleString()}` : "₹0"}
-                          </td>
-                          <td className="px-4 text-center">
-                            <button 
-                              className="btn btn-link text-danger p-1 text-decoration-none" 
-                              onClick={() => handleDelete(currentId, item.amount || 0)}
-                            >
-                              🗑️
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </>
+        </div>
       )}
 
       <div className="modal fade" id="addExpenseModal" tabIndex="-1" aria-hidden="true">

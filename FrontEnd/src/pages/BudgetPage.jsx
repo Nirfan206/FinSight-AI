@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import api from "../api/axiosConfig";
 
 export default function BudgetPage() {
+  const { setMetrics } = useOutletContext() || {}; // FIXED: Injected context to stream real-time allocation state
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -26,7 +28,7 @@ export default function BudgetPage() {
       budgetList.map(async (b) => {
         try {
           const res = await api.get(
-            `/api/expenses/category-total?category=${encodeURIComponent(b.category)}&month=${b.budgetMonth}&year=${b.budgetYear}`
+            `/expenses/category-total?category=${encodeURIComponent(b.category)}&month=${b.budgetMonth}&year=${b.budgetYear}`
           );
           return { ...b, actualSpent: res.data?.data ?? 0 };
         } catch {
@@ -41,13 +43,27 @@ export default function BudgetPage() {
     try {
       setErrorMessage("");
       setLoading(true);
-      const res = await api.get(`/api/budgets/period?month=${currentMonth}&year=${currentYear}`);
+      const res = await api.get(`/budgets/period?month=${currentMonth}&year=${currentYear}`);
       if (res.data && res.data.success) {
         const enriched = await enrichWithSpend(res.data.data || []);
         setBudgets(enriched);
+        
+        // Dynamic state sync computation for parent layouts context
+        if (setMetrics && enriched.length > 0) {
+          const totalLimits = enriched.reduce((acc, curr) => acc + (curr.monthlyLimit || 0), 0);
+          const totalSpent = enriched.reduce((acc, curr) => acc + (curr.actualSpent || 0), 0);
+          const computedUtilization = totalLimits > 0 ? Math.round((totalSpent / totalLimits) * 100) : 0;
+          
+          setMetrics((prev) => ({
+            ...prev,
+            budgetUtilization: computedUtilization
+          }));
+        }
       }
     } catch (err) {
-      console.warn("Could not load budgets, starting from an empty list:", err);
+      console.warn("Could not load budgets:", err);
+      const serverMessage = err?.response?.data?.message || err?.message || "Could not load budgets.";
+      setErrorMessage(serverMessage);
       setBudgets([]);
     } finally {
       setLoading(false);
@@ -70,7 +86,7 @@ export default function BudgetPage() {
         budgetYear: currentYear
       };
 
-      const res = await api.post("/api/budgets", payload);
+      const res = await api.post("/budgets", payload);
 
       if (res.data && res.data.success) {
         await fetchBudgets();
@@ -80,7 +96,8 @@ export default function BudgetPage() {
         modalEl?.querySelector('[data-bs-dismiss="modal"]')?.click();
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || "Could not save this budget.");
+      const serverMessage = err?.response?.data?.message || err?.message || "Could not save this budget.";
+      setErrorMessage(serverMessage);
     }
   };
 
@@ -88,12 +105,25 @@ export default function BudgetPage() {
     if (!window.confirm("Remove this budget category?")) return;
     try {
       setErrorMessage("");
-      const res = await api.delete(`/api/budgets/${id}`);
+      const res = await api.delete(`/budgets/${id}`);
       if (res.data && res.data.success) {
-        setBudgets((prev) => prev.filter((item) => item.budgetId !== id));
+        const updatedBudgets = budgets.filter((item) => item.budgetId !== id);
+        setBudgets(updatedBudgets);
+        
+        if (setMetrics) {
+          const totalLimits = updatedBudgets.reduce((acc, curr) => acc + (curr.monthlyLimit || 0), 0);
+          const totalSpent = updatedBudgets.reduce((acc, curr) => acc + (curr.actualSpent || 0), 0);
+          const computedUtilization = totalLimits > 0 ? Math.round((totalSpent / totalLimits) * 100) : 0;
+          
+          setMetrics((prev) => ({
+            ...prev,
+            budgetUtilization: computedUtilization
+          }));
+        }
       }
     } catch (err) {
-      setErrorMessage("Could not delete this budget.");
+      const serverMessage = err?.response?.data?.message || err?.message || "Could not delete this budget.";
+      setErrorMessage(serverMessage);
     }
   };
 
@@ -118,6 +148,9 @@ export default function BudgetPage() {
           <div className="fs-1 mb-3">🛡️</div>
           <h4 className="fw-bold">No budgets set for this month</h4>
           <p className="text-muted">Add a category limit to start tracking utilization.</p>
+          <button className="btn btn-primary rounded-3 fw-semibold px-4 py-2 mt-2 mx-auto" data-bs-toggle="modal" data-bs-target="#configureBudgetModal">
+            + Add First Budget Limit
+          </button>
         </div>
       ) : (
         <div className="row g-4">

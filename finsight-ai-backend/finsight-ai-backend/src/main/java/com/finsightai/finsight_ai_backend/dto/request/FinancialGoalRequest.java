@@ -28,13 +28,11 @@ public class FinancialGoalRequest {
 
     @NotNull(message = "Current amount is required")
     @DecimalMin(value = "0.00", message = "Current amount cannot be negative")
-    @Builder.Default
     private BigDecimal currentAmount = BigDecimal.ZERO;
 
     @NotNull(message = "Target date is required")
     private LocalDate targetDate;
 
-    @Size(max = 20, message = "Status length cannot exceed 20 characters")
-    @Builder.Default
-    private String status = "IN_PROGRESS"; // IN_PROGRESS, ACHIEVED, FAILED
+    @Size(max = 20, message = "Status cannot exceed 20 characters")
+    private String status = "IN_PROGRESS";
 }

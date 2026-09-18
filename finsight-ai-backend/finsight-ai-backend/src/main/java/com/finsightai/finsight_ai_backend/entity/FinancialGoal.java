@@ -2,6 +2,7 @@ package com.finsightai.finsight_ai_backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = "user")
 public class FinancialGoal extends BaseEntity {
 
     @Id
@@ -27,18 +29,19 @@ public class FinancialGoal extends BaseEntity {
     private User user;
 
     @Column(nullable = false, length = 100)
-    private String goalName; // e.g., Emergency Fund, New Car downpayment
+    private String goalName;
 
     @Column(name = "target_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal targetAmount;
 
     @Column(name = "current_amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal currentAmount;
+    @Builder.Default
+    private BigDecimal currentAmount = BigDecimal.ZERO;
 
     @Column(name = "target_date", nullable = false)
     private LocalDate targetDate;
 
-    @Builder.Default
     @Column(nullable = false, length = 20)
-    private String status = "IN_PROGRESS"; // IN_PROGRESS, ACHIEVED, FAILED
+    @Builder.Default
+    private String status = "IN_PROGRESS";
 }

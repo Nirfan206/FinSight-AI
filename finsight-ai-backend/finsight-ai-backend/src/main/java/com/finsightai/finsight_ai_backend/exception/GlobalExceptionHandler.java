@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -41,40 +40,60 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthentication(AuthenticationException ex) {
-        return buildResponse(HttpStatus.UNAUTHORIZED, "Authentication failed.", null);
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
-        return buildResponse(HttpStatus.FORBIDDEN, "Access Denied: You do not have permission to access or mutate this resource instance.", null);
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
+
         Map<String, String> errors = new HashMap<>();
+
         ex.getBindingResult().getFieldErrors().forEach(error ->
                 errors.put(error.getField(), error.getDefaultMessage()));
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Validation failure: Request payload contains invalid property arguments.",
+                "Validation failed.",
                 errors
         );
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleAll(Exception ex) {
-        log.error("Unhandled exception occurred", ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.", null);
+
+        log.error("Unhandled Exception", ex);
+
+        String message = ex.getMessage();
+
+        if (message == null || message.isBlank()) {
+            message = ex.getClass().getSimpleName();
+        }
+
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                message,
+                null
+        );
     }
 
-    private ResponseEntity<ApiResponse<Object>> buildResponse(HttpStatus status, String message, Object data) {
+    private ResponseEntity<ApiResponse<Object>> buildResponse(
+            HttpStatus status,
+            String message,
+            Object data
+    ) {
+
         ApiResponse<Object> response = ApiResponse.builder()
                 .success(false)
                 .message(message)
                 .data(data)
                 .timestamp(LocalDateTime.now())
                 .build();
+
         return ResponseEntity.status(status).body(response);
     }
 }

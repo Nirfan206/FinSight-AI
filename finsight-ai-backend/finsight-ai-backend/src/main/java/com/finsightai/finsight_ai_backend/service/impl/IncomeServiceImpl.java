@@ -42,13 +42,15 @@ public class IncomeServiceImpl implements IncomeService {
         income.setRecordDate(request.getRecordDate());
         income.setUser(user);
 
-        Income savedIncome = incomeRepository.save(income);
+        // Uses saveAndFlush to materialize persistence states inside MySQL transaction borders instantly
+        Income savedIncome = incomeRepository.saveAndFlush(income);
         return mapToResponse(savedIncome);
     }
 
     @Override
     @Transactional
     public IncomeResponse updateIncome(Long incomeId, IncomeRequest request, UserPrincipal principal) {
+        User user = fetchCurrentUser(principal);
         Income income = incomeRepository.findById(incomeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Income record not found with id: " + incomeId));
 
@@ -60,7 +62,7 @@ public class IncomeServiceImpl implements IncomeService {
         income.setDescription(request.getDescription());
         income.setRecordDate(request.getRecordDate());
 
-        Income updatedIncome = incomeRepository.save(income);
+        Income updatedIncome = incomeRepository.saveAndFlush(income);
         return mapToResponse(updatedIncome);
     }
 
@@ -91,17 +93,20 @@ public class IncomeServiceImpl implements IncomeService {
     @Override
     @Transactional
     public void deleteIncome(Long incomeId, UserPrincipal principal) {
+        User user = fetchCurrentUser(principal);
         Income income = incomeRepository.findById(incomeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Income record not found with id: " + incomeId));
 
         validateOwnership(income, principal);
         incomeRepository.delete(income);
+        incomeRepository.flush(); // Enforce deletion flush to sync baseline totals
     }
 
     @Override
     public BigDecimal getTotalIncomeByMonth(UserPrincipal principal, int month, int year) {
         User user = fetchCurrentUser(principal);
-        return incomeRepository.sumIncomeByUserAndMonth(user, month, year);
+        BigDecimal total = incomeRepository.sumIncomeByUserAndMonth(user, month, year);
+        return total != null ? total : BigDecimal.ZERO;
     }
 
     private User fetchCurrentUser(UserPrincipal principal) {

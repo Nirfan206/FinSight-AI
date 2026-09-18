@@ -1,24 +1,22 @@
 import React, { useState } from "react";
-import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; // FIXED: Adjusted path to import centralized auth hook
 
 export default function DashboardLayout() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth(); // FIXED: Injected context hook for uniform state clearance
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const [metrics] = useState({
-    totalIncome: 0,
-    totalExpenses: 0,
-    currentSavings: 0,
-    budgetUtilization: 0,
-  });
+ const [metrics, setMetrics] = useState({
+  totalIncome: 0,
+  totalExpenses: 0, // <-- plural
+  currentSavings: 0,
+  budgetUtilization: 0,
+});
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    navigate("/login");
+    // FIXED: Clean logout via AuthContext handles storage wipe, state flush, and navigation
+    logout(); 
   };
 
   const menuItems = [
@@ -99,7 +97,7 @@ export default function DashboardLayout() {
         </header>
 
         <main className="flex-grow-1 p-4 p-md-5 bg-light w-100">
-          <Outlet context={{ metrics }} />
+          <Outlet context={{ metrics, setMetrics }} />
         </main>
       </div>
 

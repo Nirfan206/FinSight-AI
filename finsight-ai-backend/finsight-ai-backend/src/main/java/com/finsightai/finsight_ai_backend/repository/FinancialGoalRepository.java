@@ -17,9 +17,11 @@ public interface FinancialGoalRepository extends JpaRepository<FinancialGoal, Lo
 
     List<FinancialGoal> findByUserAndStatus(User user, String status);
 
-    /**
-     * Finds all active goals across the entire system that have passed their deadline date.
-     */
-    @Query("SELECT g FROM FinancialGoal g WHERE g.status = 'IN_PROGRESS' AND g.targetDate < :date")
+    @Query("""
+            SELECT g
+            FROM FinancialGoal g
+            WHERE g.status = 'IN_PROGRESS'
+              AND g.targetDate < :date
+            """)
     List<FinancialGoal> findOverdueGoalsGlobally(@Param("date") LocalDate date);
 }
