@@ -45,23 +45,31 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider();
+
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
+
         return provider;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
+
         return config.getAuthenticationManager();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration configuration =
+                new CorsConfiguration();
 
         configuration.setAllowedOrigins(allowedOrigins);
+
         configuration.setAllowedMethods(Arrays.asList(
                 "GET",
                 "POST",
@@ -84,13 +92,17 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
 
         return source;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
 
         http
                 .addFilterBefore(
@@ -101,11 +113,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 .exceptionHandling(ex ->
-                        ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                        ex.authenticationEntryPoint(
+                                jwtAuthenticationEntryPoint
+                        )
                 )
 
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
                 )
 
                 .authorizeHttpRequests(auth -> auth
@@ -113,22 +129,27 @@ public class SecurityConfig {
                         // Public APIs
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/ai/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
 
+                        // AI requires authenticated USER
+                        .requestMatchers("/api/ai/**")
+                        .hasRole("USER")
+
                         // Admin APIs
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
 
-                        // Everything else requires authentication
+                        // Everything else
                         .anyRequest()
                         .authenticated()
                 )
 
-                .authenticationProvider(authenticationProvider())
+                .authenticationProvider(
+                        authenticationProvider()
+                )
 
                 .addFilterBefore(
                         jwtAuthenticationFilter,

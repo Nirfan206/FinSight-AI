@@ -23,6 +23,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /**
      * Find active/inactive user by email.
      */
-    Optional<User> findByEmailAndAccountStatus(String email, AccountStatus accountStatus);
-
+    Optional<User> findByEmailAndAccountStatus(
+            String email,
+            AccountStatus accountStatus
+    );
 }
